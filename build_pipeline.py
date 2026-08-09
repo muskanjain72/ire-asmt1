@@ -20,11 +20,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src" / "data"))
 
-import download as download_mod
-import parse_mind
-import parse_ebnerd
-import split as split_mod
-import feature_store as fs_mod
+import download as download_mod  # noqa: E402
+import parse_mind  # noqa: E402
+import parse_ebnerd  # noqa: E402
+import split as split_mod  # noqa: E402
+import feature_store as fs_mod  # noqa: E402
+# linting instruction in python -> module level import not at top of file
 
 
 def run_download(args) -> None:
