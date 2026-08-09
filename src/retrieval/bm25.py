@@ -227,6 +227,94 @@ class BM25Index:
         return out
 
 
+# =====================================================================
+# MANUAL BM25 IMPLEMENTATION (For Assignment Requirements)
+# 
+# Instructions:
+# 1. Uncomment this block of code (the ManualBM25Index class).
+# 2. In `run_for_dataset`, replace:
+#        bm25_index = BM25Index(store.articles.reset_index())
+#    with:
+#        bm25_index = ManualBM25Index(store.articles.reset_index())
+# 3. You will also need to add `import math` and `from collections import defaultdict, Counter` 
+#    at the top of this file.
+# =====================================================================
+
+# import math
+# from collections import defaultdict, Counter
+# 
+# class ManualBM25Index:
+#     """
+#     Manual inverted index implementation of BM25 from scratch,
+#     using no external scoring libraries like rank_bm25 or bm25s.
+#     """
+#     def __init__(self, articles: pd.DataFrame, k1: float = 1.5, b: float = 0.75):
+#         self.k1 = k1
+#         self.b = b
+#         self.article_ids = articles["article_id"].tolist()
+#         
+#         print("  Building manual inverted index...")
+#         corpus_text = (articles["title"].fillna("") + " " + articles["abstract"].fillna(""))
+#         
+#         # 1. Tokenize corpus
+#         tokenized_corpus = [tokenize(t) for t in corpus_text]
+#         self.N = len(tokenized_corpus)
+#         self.avgdl = sum(len(doc) for doc in tokenized_corpus) / self.N if self.N > 0 else 0
+#         
+#         # 2. Build inverted index and compute document frequencies (DF)
+#         # inverted_index maps: term -> list of (doc_index, term_freq)
+#         self.inverted_index = defaultdict(list)
+#         self.df = defaultdict(int)
+#         self.doc_lengths = []
+#         
+#         for doc_idx, tokens in enumerate(tokenized_corpus):
+#             self.doc_lengths.append(len(tokens))
+#             term_counts = Counter(tokens)
+#             for term, count in term_counts.items():
+#                 self.inverted_index[term].append((doc_idx, count))
+#                 self.df[term] += 1
+#                 
+#         # 3. Compute IDF for each term in the vocabulary
+#         self.idf = {}
+#         for term, df_count in self.df.items():
+#             # Standard BM25 IDF formula
+#             idf_val = math.log(1 + (self.N - df_count + 0.5) / (df_count + 0.5))
+#             self.idf[term] = idf_val
+# 
+#     def retrieve_topk(self, query_text: str, k: int) -> list[str]:
+#         query_tokens = tokenize(query_text)
+#         if not query_tokens:
+#             return []
+#             
+#         doc_scores = defaultdict(float)
+#         
+#         # Calculate BM25 score for each query term
+#         for term in query_tokens:
+#             if term not in self.inverted_index:
+#                 continue
+#             idf_val = self.idf[term]
+#             
+#             # Iterate through all documents containing the term
+#             for doc_idx, tf in self.inverted_index[term]:
+#                 dl = self.doc_lengths[doc_idx]
+#                 numerator = tf * (self.k1 + 1)
+#                 denominator = tf + self.k1 * (1 - self.b + self.b * (dl / self.avgdl))
+#                 doc_scores[doc_idx] += idf_val * (numerator / denominator)
+#                 
+#         if not doc_scores:
+#             return []
+#             
+#         # Sort documents by score descending
+#         top_docs = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)[:k]
+#         return [self.article_ids[doc_idx] for doc_idx, score in top_docs]
+# 
+#     def retrieve_topk_batch(self, query_texts: list[str], k: int) -> list[list[str]]:
+#         # Fallback to looping for the manual implementation
+#         return [self.retrieve_topk(q, k) for q in query_texts]
+# 
+# =====================================================================
+
+
 def evaluate_recall_at_k(
     bm25_index: BM25Index,
     feature_store: FeatureStore,
