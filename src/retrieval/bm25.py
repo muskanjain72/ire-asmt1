@@ -482,6 +482,37 @@ class BM25Index:
             out[orig_idx] = [self.article_ids[i] for i in results[row]]
         return out
 
+    def score_candidates_batch(self, query_texts: list[str], candidate_lists: list[list[str]]) -> list[dict]:
+        """Score specific candidates for each query."""
+        non_empty_idx = [i for i, q in enumerate(query_texts) if q.strip()]
+        out = [{} for _ in query_texts]
+        if not non_empty_idx:
+            return out
+
+        non_empty_queries = [query_texts[i] for i in non_empty_idx]
+        query_tokens = bm25s.tokenize(non_empty_queries, stopwords=None, show_progress=False)
+        
+        # We need scores for all possible candidates, so k=len(self.article_ids)
+        k = len(self.article_ids)
+        results, scores = self.bm25.retrieve(query_tokens, k=k, show_progress=False)
+        
+        for row, orig_idx in enumerate(non_empty_idx):
+            candidates = set(candidate_lists[orig_idx])
+            score_dict = {}
+            for i, doc_idx in enumerate(results[row]):
+                aid = self.article_ids[doc_idx]
+                if aid in candidates:
+                    score_dict[aid] = float(scores[row, i])
+                    if len(score_dict) == len(candidates):
+                        break
+            
+            for aid in candidates:
+                if aid not in score_dict:
+                    score_dict[aid] = 0.0
+            out[orig_idx] = score_dict
+            
+        return out
+
 
 def evaluate_recall_at_k(
     bm25_index: BM25Index,

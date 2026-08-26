@@ -216,6 +216,30 @@ def user_vector(article_ids: list, embeddings: dict):
     return np.mean(vecs, axis=0)
 
 
+def score_candidates_batch(query_vectors: list, candidate_lists: list, embeddings: dict) -> list[dict]:
+    """Score specific candidates for each query (cosine similarity)."""
+    score_dicts = []
+    for qvec, candidates in zip(query_vectors, candidate_lists):
+        if qvec is None:
+            score_dicts.append({})
+            continue
+            
+        qnorm = np.linalg.norm(qvec)
+        q_normed = qvec / qnorm if qnorm > 0 else qvec
+        
+        scores = {}
+        for c in candidates:
+            if c in embeddings:
+                c_vec = embeddings[c]
+                cnorm = np.linalg.norm(c_vec)
+                c_normed = c_vec / cnorm if cnorm > 0 else c_vec
+                scores[c] = float(np.dot(q_normed, c_normed))
+            else:
+                scores[c] = 0.0
+        score_dicts.append(scores)
+    return score_dicts
+
+
 def evaluate_recall_at_k(
     ann_index: ANNIndex,
     embeddings: dict,
