@@ -1,8 +1,8 @@
 """
 Download raw data files for MIND and EB-NeRD.
 
-Small/demo sets are useful for development and debugging.
-The large test sets are required for Codabench submissions.
+By default this downloads only the data needed for the local pipeline:
+MIND-small and EB-NeRD demo. Extra submission/training artifacts are opt-in.
 
 MIND: downloaded via the Kaggle API for MIND-small and HuggingFace
 for MINDlarge_test.
@@ -11,11 +11,11 @@ EB-NeRD: downloaded directly from the public S3 bucket, no auth needed.
 
 Usage:
     python src/data/download.py
-    python src/data/download.py --skip-mind-testset
-    python src/data/download.py --skip-ebnerd-small
-    python src/data/download.py --skip-ebnerd-testset
+    python src/data/download.py --include-mind-testset
+    python src/data/download.py --include-ebnerd-small
+    python src/data/download.py --include-ebnerd-testset
     python src/data/download.py --include-ebnerd-large
-    python src/data/download.py --skip-embeddings
+    python src/data/download.py --include-embeddings
 """
 
 import argparse
@@ -68,109 +68,25 @@ def _unzip(zip_path: Path, dest_dir: Path) -> None:
         raise
 
 
-# def download_mind(
-#     dest_dir: Path = MIND_DIR,
-#     include_testset: bool = True,
-# ) -> None:
-#     """
-#     Download MIND-small using the Kaggle API and, optionally,
-#     MINDlarge_test using the HuggingFace CLI.
-#     """
-#     print("=== MIND-small (via Kaggle) ===")
-
-#     kaggle_creds = Path.home() / ".kaggle" / "kaggle.json"
-
-#     if not kaggle_creds.exists():
-#         print(
-#             "  Kaggle credentials not found at ~/.kaggle/kaggle.json.\n"
-#             "  Skipping MIND-small download."
-#         )
-#         return
-
-#     try:
-#         import kaggle  # noqa: F401
-#     except ImportError:
-#         print("  'kaggle' package not installed. Run: pip install kaggle")
-#         return
-
-#     dest_dir.mkdir(parents=True, exist_ok=True)
-
-#     zip_path = dest_dir / "mind-news-dataset.zip"
-
-#     if not zip_path.exists():
-#         _run([
-#             "kaggle",
-#             "datasets",
-#             "download",
-#             "-d",
-#             "arashnic/mind-news-dataset",
-#             "-p",
-#             str(dest_dir),
-#         ])
-#     else:
-#         print(f"  already have {zip_path}, skipping download")
-
-#     _unzip(zip_path, dest_dir)
-
-#     # Remove stray duplicate folder from the Kaggle mirror
-#     stray = dest_dir / "news.tsv"
-#     if stray.is_dir():
-#         shutil.rmtree(stray)
-
-#     train_dir = dest_dir / "MINDsmall_train"
-
-#     if (train_dir / "news.tsv").exists() and \
-#        (train_dir / "behaviors.tsv").exists():
-#         print(f"  MIND-small ready at {train_dir}")
-#     else:
-#         print(
-#             f"  WARNING: expected files not found under {train_dir} — "
-#             f"inspect {dest_dir} manually."
-#         )
-
-#     if not include_testset:
-#         print("  MINDlarge_test skipped")
-#         return
-
-#     # ---------------------------------------------------------
-#     # MINDlarge_test - required for Codabench submission
-#     # ---------------------------------------------------------
-#     print("=== MINDlarge_test ===")
-
-#     test_dir = dest_dir / "test"
-#     test_dir.mkdir(parents=True, exist_ok=True)
-
-#     test_zip = test_dir / "MINDlarge_test.zip"
-
-#     if not test_zip.exists():
-#         _run([
-#             "hf",
-#             "download",
-#             "yjw1029/MIND",
-#             "--repo-type",
-#             "dataset",
-#             "--include",
-#             "MINDlarge_test.zip",
-#             "--local-dir",
-#             str(test_dir),
-#         ])
-#     else:
-#         print(f"  already have {test_zip}, skipping download")
-
-#     _unzip(test_zip, test_dir / "MINDlarge_test")
-
-#     print(f"  MINDlarge_test ready at {test_dir / 'MINDlarge_test'}")
-
-
 def download_mind(
     dest_dir: Path = MIND_DIR,
-    include_testset: bool = True,
+    include_testset: bool = False,
 ) -> None:
     """
     Download MIND-small using the Kaggle API and, optionally,
     MINDlarge_test using the HuggingFace CLI.
     """
     print("=== MIND-small (via Kaggle) ===")
+    
+    kaggle_creds = Path.home() / ".kaggle" / "access_token"
+    if not kaggle_creds.exists():
+        print(
+        "  Kaggle credentials not found at ~/.kaggle/access_token.\n"
+        "  Create an API token at https://www.kaggle.com/settings/api "
+        "and save it to ~/.kaggle/access_token with chmod 600. "
+        "Skipping MIND download."
+        )
+        return
 
     dest_dir.mkdir(parents=True, exist_ok=True)
 
@@ -240,12 +156,13 @@ def download_mind(
 
     print(f"  MINDlarge_test ready at {test_dir / 'MINDlarge_test'}")
 
+
 def download_ebnerd(
     dest_dir: Path = EBNERD_DIR,
-    include_small: bool = True,
+    include_small: bool = False,
     include_large: bool = False,
-    include_testset: bool = True,
-    include_embeddings: bool = True,
+    include_testset: bool = False,
+    include_embeddings: bool = False,
 ) -> None:
     """
     Download EB-NeRD demo/small data, optional large data,
@@ -321,15 +238,25 @@ def main():
     )
 
     parser.add_argument(
+        "--include-mind-testset",
+        action="store_true",
+        help="download MINDlarge_test for submission; disabled by default",
+    )
+    parser.add_argument(
         "--skip-mind-testset",
         action="store_true",
-        help="skip MINDlarge_test",
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
+        "--include-ebnerd-small",
+        action="store_true",
+        help="download EB-NeRD small; disabled by default",
+    )
+    parser.add_argument(
         "--skip-ebnerd-small",
         action="store_true",
-        help="skip EB-NeRD small",
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
@@ -339,28 +266,40 @@ def main():
     )
 
     parser.add_argument(
+        "--include-ebnerd-testset",
+        action="store_true",
+        help="download EB-NeRD test set for submission; disabled by default",
+    )
+    parser.add_argument(
         "--skip-ebnerd-testset",
         action="store_true",
-        help="skip EB-NeRD test set",
+        help=argparse.SUPPRESS,
     )
 
     parser.add_argument(
+        "--include-embeddings",
+        action="store_true",
+        help="download EB-NeRD Word2Vec embeddings; disabled by default",
+    )
+    parser.add_argument(
         "--skip-embeddings",
         action="store_true",
-        help="skip Word2Vec embeddings",
+        help=argparse.SUPPRESS,
     )
 
     args = parser.parse_args()
 
     if not args.skip_mind:
-        download_mind(include_testset=not args.skip_mind_testset)
+        download_mind(
+            include_testset=args.include_mind_testset and not args.skip_mind_testset,
+        )
 
     if not args.skip_ebnerd:
         download_ebnerd(
-            include_small=not args.skip_ebnerd_small,
+            include_small=args.include_ebnerd_small and not args.skip_ebnerd_small,
             include_large=args.include_ebnerd_large,
-            include_testset=not args.skip_ebnerd_testset,
-            include_embeddings=not args.skip_embeddings,
+            include_testset=args.include_ebnerd_testset and not args.skip_ebnerd_testset,
+            include_embeddings=args.include_embeddings and not args.skip_embeddings,
         )
 
     print("\nDone. Raw data under data/raw/")

@@ -7,8 +7,11 @@ Usage:
     python build_pipeline.py --skip-download   # reuse existing data/raw/
     python build_pipeline.py --skip-mind       # EB-NeRD only
     python build_pipeline.py --skip-ebnerd     # MIND only
-    python build_pipeline.py --skip-mind-testset --skip-ebnerd-testset
-    python build_pipeline.py --include-ebnerd-large  # opt into EB-NeRD large
+    python build_pipeline.py --include-mind-testset      # opt into MINDlarge_test
+    python build_pipeline.py --include-ebnerd-small      # opt into EB-NeRD small
+    python build_pipeline.py --include-ebnerd-testset    # opt into EB-NeRD testset
+    python build_pipeline.py --include-ebnerd-large      # opt into EB-NeRD large
+    python build_pipeline.py --include-embeddings        # opt into EB-NeRD Word2Vec
 
 This is Q1 requirement #5 — a single script that rebuilds everything
 from raw files. Each stage's own module can still be run standalone
@@ -38,16 +41,18 @@ def run_download(args) -> None:
         print("  --skip-download set, assuming data/raw/ already populated")
         return
     if not args.skip_mind:
-        download_mod.download_mind(include_testset=not args.skip_mind_testset)
+        download_mod.download_mind(
+            include_testset=args.include_mind_testset and not args.skip_mind_testset,
+        )
     else:
         print("  --skip-mind set, skipping MIND download")
 
     if not args.skip_ebnerd:
         download_mod.download_ebnerd(
-            include_small=not args.skip_ebnerd_small,
+            include_small=args.include_ebnerd_small and not args.skip_ebnerd_small,
             include_large=args.include_ebnerd_large,
-            include_testset=not args.skip_ebnerd_testset,
-            include_embeddings=not args.skip_embeddings,
+            include_testset=args.include_ebnerd_testset and not args.skip_ebnerd_testset,
+            include_embeddings=args.include_embeddings and not args.skip_embeddings,
         )
     else:
         print("  --skip-ebnerd set, skipping EB-NeRD download")
@@ -143,12 +148,20 @@ def main():
                          help="reuse existing data/raw/ instead of re-downloading")
     parser.add_argument("--skip-mind", action="store_true")
     parser.add_argument("--skip-ebnerd", action="store_true")
-    parser.add_argument("--skip-mind-testset", action="store_true")
-    parser.add_argument("--skip-ebnerd-small", action="store_true")
+    parser.add_argument("--include-mind-testset", action="store_true",
+                         help="download MINDlarge_test; disabled by default")
+    parser.add_argument("--skip-mind-testset", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--include-ebnerd-small", action="store_true",
+                         help="download EB-NeRD small; disabled by default")
+    parser.add_argument("--skip-ebnerd-small", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--include-ebnerd-large", action="store_true",
                          help="download EB-NeRD large; disabled by default because it is very large")
-    parser.add_argument("--skip-ebnerd-testset", action="store_true")
-    parser.add_argument("--skip-embeddings", action="store_true")
+    parser.add_argument("--include-ebnerd-testset", action="store_true",
+                         help="download EB-NeRD test set; disabled by default")
+    parser.add_argument("--skip-ebnerd-testset", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--include-embeddings", action="store_true",
+                         help="download EB-NeRD Word2Vec embeddings; disabled by default")
+    parser.add_argument("--skip-embeddings", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     run_download(args)
