@@ -29,10 +29,13 @@
 
 .PHONY: data download parse split features index eval submit-mind submit-ebnerd clean help
 
+DOWNLOAD_FLAGS ?=
+
 help:
 	@echo "Targets:"
 	@echo "  make data          - full data pipeline: download + parse + split + feature store check"
-	@echo "  make download      - download raw MIND + EB-NeRD data only"
+	@echo "  make download      - download raw MIND + EB-NeRD data only; pass DOWNLOAD_FLAGS='...' for skips"
+	@echo "                       example: make download DOWNLOAD_FLAGS='--skip-mind-testset --skip-ebnerd-testset --skip-embeddings'"
 	@echo "  make parse         - parse raw data into unified schema (assumes already downloaded)"
 	@echo "  make split         - temporal train/val/test split (assumes already parsed)"
 	@echo "  make features      - feature store sanity check (assumes already split)"
@@ -46,7 +49,7 @@ data:
 	python3 build_pipeline.py
 
 download:
-	python3 src/data/download.py
+	python3 src/data/download.py $(DOWNLOAD_FLAGS)
 
 parse:
 	python3 build_pipeline.py --skip-download
