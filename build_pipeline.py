@@ -7,6 +7,8 @@ Usage:
     python build_pipeline.py --skip-download   # reuse existing data/raw/
     python build_pipeline.py --skip-mind       # EB-NeRD only
     python build_pipeline.py --skip-ebnerd     # MIND only
+    python build_pipeline.py --skip-mind-testset --skip-ebnerd-testset
+    python build_pipeline.py --include-ebnerd-large  # opt into EB-NeRD large
 
 This is Q1 requirement #5 — a single script that rebuilds everything
 from raw files. Each stage's own module can still be run standalone
@@ -35,11 +37,20 @@ def run_download(args) -> None:
     if args.skip_download:
         print("  --skip-download set, assuming data/raw/ already populated")
         return
-    download_mod.download_mind()
-    download_mod.download_ebnerd(
-        include_small=not args.skip_ebnerd_small,
-        include_embeddings=not args.skip_embeddings,
-    )
+    if not args.skip_mind:
+        download_mod.download_mind(include_testset=not args.skip_mind_testset)
+    else:
+        print("  --skip-mind set, skipping MIND download")
+
+    if not args.skip_ebnerd:
+        download_mod.download_ebnerd(
+            include_small=not args.skip_ebnerd_small,
+            include_large=args.include_ebnerd_large,
+            include_testset=not args.skip_ebnerd_testset,
+            include_embeddings=not args.skip_embeddings,
+        )
+    else:
+        print("  --skip-ebnerd set, skipping EB-NeRD download")
 
 
 def run_parse(args) -> None:
@@ -132,7 +143,11 @@ def main():
                          help="reuse existing data/raw/ instead of re-downloading")
     parser.add_argument("--skip-mind", action="store_true")
     parser.add_argument("--skip-ebnerd", action="store_true")
+    parser.add_argument("--skip-mind-testset", action="store_true")
     parser.add_argument("--skip-ebnerd-small", action="store_true")
+    parser.add_argument("--include-ebnerd-large", action="store_true",
+                         help="download EB-NeRD large; disabled by default because it is very large")
+    parser.add_argument("--skip-ebnerd-testset", action="store_true")
     parser.add_argument("--skip-embeddings", action="store_true")
     args = parser.parse_args()
 
