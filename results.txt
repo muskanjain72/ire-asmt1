@@ -1,0 +1,74 @@
+# AI Usage Log
+
+This project was developed with substantial assistance from Claude (Anthropic), used
+interactively across a single extended conversation covering the full assignment (Q1-Q5).
+This log summarizes the workflow, the AI's role at each stage, and how AI-generated code was
+verified.
+
+## Tool Used
+Claude (Anthropic), web-based chat interface. All code was generated in response to natural-
+language prompts, then copied into the local project, run by the developer, and iterated on
+based on real command output/errors pasted back into the conversation.
+
+## Workflow Pattern
+
+The general pattern throughout was:
+1. Developer describes the assignment requirement or a problem encountered (e.g. an error
+   message, unexpected output, a slow-running script).
+2. Claude proposes code and/or a diagnosis, with reasoning for *why* (e.g. explaining BM25's
+   TF-saturation term, or why a leakage-filtering bug caused `click_history=0` for the MIND
+   train split).
+3. Developer runs the code locally, pastes back real output (including errors).
+4. Claude iterates based on real results — this repo's code went through several rounds of
+   genuine bug fixes based on actual run output, not just first-draft code.
+
+## AI-Generated vs. Human-Verified Breakdown
+
+| Component | Origin | Verification |
+|---|---|---|
+| `src/data/parse_mind.py`, `parse_ebnerd.py` | AI-generated | Run by developer against real downloaded data; column/schema assumptions corrected after developer pasted real `pandas`/`pyarrow` schema inspection output |
+| `src/data/split.py` | AI-generated, then **redesigned** | Original static per-split leakage-filtering approach produced `click_history=0` for MIND train — a real bug caught by the developer running the code and reporting the anomalous output. Claude diagnosed the root cause and rewrote the design (dynamic query-time filtering via feature_store.py instead of static pre-filtering) |
+| `src/data/feature_store.py` | AI-generated | Verified via printed smoke-test output (sample user history counts, recency features) checked for internal consistency by both parties |
+| `src/retrieval/bm25.py` | AI-generated, revised | Original `rank_bm25`-based implementation was too slow in practice (developer reported it hanging); switched to `bm25s` with batched scoring after diagnosing the performance issue |
+| `src/retrieval/embeddings.py`, `ann_index.py` | AI-generated | Run by developer; Recall@K results reviewed for correctness (monotonicity across K, sanity-checked against a manually inspected example) |
+| `src/eval/metrics.py`, `beyond_accuracy.py`, `bootstrap.py`, `slicing.py` | AI-generated | Each includes a synthetic self-test (e.g. random scoring → AUC≈0.5) that the developer ran and confirmed before wiring to real data |
+| `src/eval/run_eval.py` | AI-generated | Run against real BM25/embedding scores on both datasets; results reviewed for internal sanity (e.g. flat cold-start recall traced to a small-sample artifact, not a bug) |
+| `src/submission/generate_predictions.py`, `generate_predictions_ebnerd.py` | AI-generated, revised | Initial EB-NeRD version caused local memory/performance issues; rewritten to stream via `pyarrow` batches after developer reported the failure |
+| `tests/test_no_leakage.py` | AI-generated | See file — asserts the core leakage invariant used throughout the project |
+| `Makefile`, `build_pipeline.py` | AI-generated | Run end-to-end by developer, output compared against manual step-by-step runs to confirm identical results |
+| Dataset download commands, Kaggle/HuggingFace auth troubleshooting | AI-suggested, human-executed | Multiple real failures (HF gating, corrupted downloads, Azure blob access changes) diagnosed jointly from real error messages |
+
+## Notable Debugging Episodes (real bugs caught via human-in-the-loop testing)
+
+1. **Leakage-filtering bug**: an early version of `split.py` used a single per-user global
+   cutoff for filtering click history, which produced 0 valid history rows for the MIND train
+   split. Caught because the developer reported the anomalous `0` in real output; fixed by
+   redesigning to dynamic per-impression filtering in `feature_store.py`.
+2. **BM25 performance**: `rank_bm25`'s pure-Python scoring made the evaluation script
+   effectively hang at MIND's scale (51k articles × thousands of queries). Diagnosed from a
+   `KeyboardInterrupt` traceback the developer provided; fixed by switching to the vectorized
+   `bm25s` library with batched retrieval.
+3. **EB-NeRD submission script memory issue**: loading all 13.5M test behavior rows into
+   memory at once (twice — once for a schema check, once for processing) caused the developer's
+   laptop to hang. Fixed by switching to `pyarrow`'s batch-streaming API.
+4. **MIND test set scope**: developer discovered (by downloading and inspecting) that
+   MINDsmall has no official test split — only MINDlarge does — which meant the submission
+   pipeline needed its own freshly-built index over MINDlarge_test's article set rather than
+   reusing the MINDsmall-trained index.
+
+## Human Contributions
+
+- All commands were actually executed by the developer, on their own machine, against real
+  downloaded data — no code or result in this repo is unverified/untested.
+- All external service interactions (Kaggle registration, HuggingFace token creation, Codabench
+  registration and submission) were performed manually by the developer.
+- Final submission file review (checking rank counts matched permutations, format spot-checks
+  against the official sample submission) was done by the developer before each Codabench upload.
+- All error messages, unexpected outputs, and anomalies included in this log were identified by
+  the developer running real code, not anticipated in advance by the AI.
+
+## Full Conversation
+
+A full export of the conversation this project was developed in is available on request /
+attached separately per submission requirements, covering the complete prompt history from
+initial repo scaffolding through final Codabench submissions.
